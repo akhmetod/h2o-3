@@ -364,7 +364,7 @@ public class RegisterV3Api extends AbstractRegister {
     // Log file management.
     // Note:  Hacky pre-route cutout of "/3/Logs/download" is done above in a non-json way.
     RequestServer.registerEndpoint("logs",
-        "GET /3/Logs/nodes/{nodeidx}/files/{name}", LogsHandler.class, "fetch",
+        "GET /3/Logs/nodes/{ipport}/files/{name}", LogsHandler.class, "fetch",
         "Get named log file for a node.");
 
 

@@ -1372,6 +1372,8 @@ final public class H2O {
    * It is updated also when a new client appears. */
   private static HashSet<H2ONode> STATIC_H2OS = null;
 
+  private static Map<H2ONode.H2Okey, H2ONode> STATIC_H2OS_MAP = new ConcurrentHashMap<>();
+
   /* List of all clients that ever connected to this cloud */
   private static Map<H2ONode.H2Okey, H2ONode> CLIENTS_MAP = new ConcurrentHashMap<>();
 
@@ -1478,6 +1480,10 @@ final public class H2O {
     SELF._heartbeat._jar_md5 = JarHash.JARHASH;
     SELF._heartbeat._client = ARGS.client;
     SELF._heartbeat._cloud_name_hash = ARGS.name.hashCode();
+
+    if(ARGS.client){
+      reportClient(H2O.SELF); // report myself as the client to myself
+    }
   }
 
   /** Starts the worker threads, receiver threads, heartbeats and all other
@@ -1550,6 +1556,8 @@ final public class H2O {
   // A dense array indexing all Cloud members. Fast reversal from "member#" to
   // Node.  No holes.  Cloud size is _members.length.
   public final H2ONode[] _memary;
+  /* List of all clients that ever connected to this cloud */
+  private Map<H2ONode.H2Okey, H2ONode> _memary_map;
   final int _hash;
 
   // A dense integer identifier that rolls over rarely. Rollover limits the
@@ -1563,6 +1571,11 @@ final public class H2O {
   H2O( H2ONode[] h2os, int hash, int idx ) {
     _memary = h2os;             // Need to clone?
     java.util.Arrays.sort(_memary);       // ... sorted!
+    // create map key -> node
+    _memary_map = new ConcurrentHashMap<>();
+    for(H2ONode node: h2os){
+     _memary_map.put(node._key, node);
+    }
     _hash = hash;               // And record hash for cloud rollover
     _idx = (char)(idx&0x0ff);   // Roll-over at 256
   }
@@ -1600,6 +1613,10 @@ final public class H2O {
     return java.util.Arrays.toString(_memary);
   }
   public H2ONode[] members() { return _memary; }
+
+  public Map<H2ONode.H2Okey, H2ONode> membersByKey(){
+    return _memary_map;
+  }
 
   // Cluster free memory
   public long free_mem() {
