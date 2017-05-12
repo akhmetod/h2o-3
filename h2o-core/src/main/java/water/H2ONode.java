@@ -53,12 +53,12 @@ public final class H2ONode extends Iced<H2ONode> implements Comparable {
   /** Identification of the node via IP and PORT.
    *
    */
-  public static final class H2Okey extends InetSocketAddress implements Comparable {
+  static final class H2Okey extends InetSocketAddress implements Comparable {
     // Numeric representation of IP
     // For IPv6 the both fields are valid and describes full IPv6 address, for IPv4 only low 32 bits of _ipLow are valid
     // But still need a flag to distinguish between IPv4 and IPv6
     final long _ipHigh, _ipLow; // IPv4: A.B.C.D ~ DCBA
-    public H2Okey(InetAddress inet, int port) {
+    H2Okey(InetAddress inet, int port) {
       super(inet, port);
       byte[] b = inet.getAddress(); // 4bytes or 16bytes
       if (b.length == 4) {

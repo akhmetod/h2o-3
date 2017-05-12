@@ -8,8 +8,6 @@ import water.util.Log;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 public class LogsHandler extends Handler {
   private static class GetLogTask extends DTask<GetLogTask> {
@@ -114,40 +112,31 @@ public class LogsHandler extends Handler {
     }
   }
 
-  private static H2ONode.H2Okey getKey(String ipPort){
-    if(ipPort.equals("self")){
-      return H2O.SELF._key;
-    }else {
-      String ip = ipPort.split(":")[0];
-      int port = Integer.parseInt(ipPort.split(":")[1]) + 1; // use public port
 
-      try {
-        return new H2ONode.H2Okey(InetAddress.getByName(ip), port);
-      } catch (UnknownHostException e) {
-        throw new IllegalArgumentException("Ip address of the node to get logs from is not valid!");
-      }
+  private static H2ONode getH2ONode(String ipPort){
+    if (ipPort.equals("self")) {
+      return H2O.SELF;
+    } else {
+        H2ONode node = H2O.CLOUD.getNodeByIPPort(ipPort);
+        if (node != null){
+          return node;
+        } else {
+          // it still can be client
+          H2ONode client = H2O.getClientByIPPort(ipPort);
+          if (client != null) {
+            return client;
+          } else {
+            // the ipport does not represent any existing h2o cloud member or client
+            throw new IllegalArgumentException("No H2O node running as part of this cloud on " + ipPort + " does not exist!");
+          }
+        }
     }
   }
-
-  // this method already expects that the key represents either h2o node or client.
-  // it still can return null since the client could disappear in the meanwhile
-  private static H2ONode getNodeByKey(H2ONode.H2Okey key){
-    H2ONode ret = H2O.CLOUD.membersByKey().get(key);
-    if(ret == null){
-      ret = H2O.getClientsByKey().get(key);
-    }
-    return ret;
-  }
-
+  
   @SuppressWarnings("unused") // called through reflection by RequestServer
   public LogsV3 fetch(int version, LogsV3 s) {
 
-    final H2ONode.H2Okey key = getKey(s.ipport);
-    if(!H2O.CLOUD.membersByKey().containsKey(key) && !H2O.getClientsByKey().containsKey(key)){
-      // the key does not represent any existing h2o cloud member or client
-      throw new IllegalArgumentException("No H2O node running as part of this cloud on " + s.ipport+ " does not exist!");
-    }
-
+    H2ONode node = getH2ONode(s.ipport);
     String filename = s.name;
     if (filename != null) {
       if (filename.contains(File.separator)) {
@@ -157,7 +146,7 @@ public class LogsHandler extends Handler {
 
     GetLogTask t = new GetLogTask();
     t.name = filename;
-    if (H2O.SELF._key.equals(key)) {
+    if (H2O.SELF.equals(node)) {
       // Local node.
       try {
         t.doIt();
@@ -167,10 +156,9 @@ public class LogsHandler extends Handler {
       }
     } else {
       // Remote node.
-      Log.trace("GetLogTask starting to node  " + key + " ...");
-      H2ONode node = getNodeByKey(key);
+      Log.trace("GetLogTask starting to node  " + node._key + " ...");
       new RPC<>(node, t).call().get();
-      Log.trace("GetLogTask completed to node " + key);
+      Log.trace("GetLogTask completed to node " + node._key);
     }
 
     if (!t.success) {
